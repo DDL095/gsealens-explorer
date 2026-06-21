@@ -1,0 +1,31 @@
+# enrichit.yaml — enrichit R package
+platform: enrichit
+version: "0.1"
+status: skeleton
+
+schema:
+  class: gseaResult
+  type: S4
+
+result_fields:
+  pathway_id: "ID"
+  pathway_desc: "Description"
+  set_size: "setSize"
+  enrichment_score: "enrichmentScore"
+  nes: "NES"
+  pvalue: "pvalue"
+  fdr: "p.adjust"
+  qvalue: "qvalue"
+  leading_edge_pct: "leading_edge"
+  core_enrichment: "core_enrichment"
+
+detection:
+  class_chain: ["gseaResult"]
+  distinguishing: "no @organism field"
+  r_snippet: |
+    obj <- readRDS(path)
+    inherits(obj, "gseaResult") && (is.null(obj@organism) || !nzchar(obj@organism))
+
+notes:
+  - "Single gseaResult object, not a list of contrasts"
+  - "No Collection metadata — user must specify which collection"

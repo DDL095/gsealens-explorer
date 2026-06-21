@@ -1,0 +1,52 @@
+# === Output / runtime artifacts ===
+out/
+*.rds
+*.RData
+*.rda
+.RData
+*.log
+.audit/
+
+# === Local personalization layer (never commit) ===
+# Put user-specific path overrides, real experiment examples, etc. here.
+.local_overrides/
+
+# === Secrets & local env ===
+.env
+.env.local
+*.pem
+*.key
+
+# === OS cruft ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Editor ===
+*.swp
+*.swo
+*~
+.idea/
+.vscode/*.local
+
+# === R ===
+.Rhistory
+.Rapp.history
+.Rproj.user/
+*.Rproj
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# === Node (for optional web tooling) ===
+node_modules/
+
+# === Test artifacts ===
+tests/testdata/*.rds
+!tests/testdata/.gitkeep

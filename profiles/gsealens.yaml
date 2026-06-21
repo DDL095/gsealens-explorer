@@ -1,0 +1,42 @@
+# gsealens.yaml — GSEALENS GSEA Capsule (ZYH-validated)
+platform: gsealens
+version: "1.0"
+status: full
+
+schema:
+  class: GseaRes                # S3-style list with embedded S4
+  results_container: "$results" # $ means S3 slot
+  geneset_registry: "$geneset_info$used_collections"
+  metadata: "$metadata"
+  de_backend: "$backend_info$backend"
+
+result_fields:
+  pathway_id: "ID"
+  pathway_desc: "Description"
+  set_size: "setSize"
+  enrichment_score: "enrichmentScore"
+  nes: "NES"
+  pvalue: "pvalue"
+  fdr: "p.adjust"
+  qvalue: "qvalue"
+  leading_edge_pct: "leading_edge"
+  core_enrichment: "core_enrichment"  # '/' separated gene names
+  collection: "Collection"
+  subcollection: "Subcollection"
+
+detection:
+  class_chain: ["GseaRes", "list"]
+  r_snippet: |
+    obj <- readRDS(path)
+    inherits(obj, "GseaRes") &&
+    all(c("results","de_store","geneset_info","metadata") %in% names(obj))
+
+default_contrasts:
+  - "AduCre_vs_Con"
+  - "AgeCre_vs_Con"
+  - "AgeCre_vs_AduCre"
+
+notes:
+  - "leading_edge is string like 'tags=48%, list=12%, signal=43%'"
+  - "core_enrichment is '/' separated gene names, need split"
+  - "$data is S4 enrichit::gseaResult, NOT the gseaResult S4 in clusterProfiler"
