@@ -184,7 +184,7 @@ for (cn in contrasts) {
     md_lines <- c(md_lines, sprintf("**统计概览**: 总 %d 通路 (FDR<0.25, |NES|≥1.0) | 高置信: %d | 中置信: %d | 低置信: %d",
                                     nrow(all_sig), n_high, n_med, n_low))
     md_lines <- c(md_lines, "")
-    md_lines <- c(md_lines, "| # | 通路 ID | \\|**|NES| enrichment direction framework**\| | 富集方向 | FDR | Collection | 置信度 |")
+    md_lines <- c(md_lines, "| # | 通路 ID | \\|**|NES| enrichment direction framework**\| | 富集方向 | FDR | Collection | 置信度 |") # nolint: error.
     md_lines <- c(md_lines, "|:--:|:-----------|:----:|:-----------:|:------:|:-----------|:------:|")
 
     for (i in seq_len(min(nrow(all_sig), 500))) {
