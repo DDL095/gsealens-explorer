@@ -1,105 +1,62 @@
-# Roadmap
+# 路线图
 
-> Living document. Dates are indicative, not commitments.
+> 本文档持续更新。所列日期仅为参考，并非承诺。
 
-## North star
+## 最终目标
 
-Make gsealens-explorer the de facto interpretation layer for anyone running GSEA on
-bulk transcriptomics data — usable from Copilot Chat, from any LLM agent
-framework, and eventually as a plain R/Python library for non-LLM users.
+让 gsealens-explorer 成为完美适配GSEAlens的GSEA结果解读器，能在多个agent平台适配使用。
 
-## v0.6 — Public release foundation (next)
+## v0.6 — 公开发布基础（下一版本）
 
-Theme: **clusterProfiler first-class + tests + multi-SA POC**.
+主题： **测试体系 + 多 SA 架构 POC**。
 
-### v0.6.0 — clusterProfiler first-class
+### v0.6.0 测试框架 + 合成测试数据
 
-Today only the gsealens profile is fully validated. Most public users will
-arrive with `clusterProfiler::gseGO` / `gseNES` output, so this must be solved
-first.
+- `tests/testdata/synthetic_gsea.rds` —— 脚本生成的 mock capsule，包含 5 个 contrast × 50 条 Hallmark 通路，并预置若干方向翻转案例（true_flip、p_suppression、p_restoration）。
+- `tests/test_skill_structure.py` —— 校验 frontmatter 有效性、profile ↔ script 交叉引用、对 SKILL.md 本身做反模式正则检测。
+- `tests/test_quality_gate.py` —— 向 G1/G2/G3 喂入已知的 PASS 与 FAIL 报告，断言判决正确。
+- 接入 GitHub Actions CI，在每个 PR 上跑冒烟测试。
 
-- Promote `profiles/clusterprofiler.yaml` from `status: skeleton` to
-  `status: full`.
-- Extend `scripts/extract_gsea_capsule.R` (or add a sibling extractor) to
-  handle the `gseaResult` S4 object directly — `NES`, `p.adjust`,
-  `core_enrichment` are already standard slots.
-- Add `tests/test_extract_clusterprofiler.R` using a mock `gseaResult` built
-  from `clusterProfiler`'s own example data.
+### v0.6.1 — 多 SA 并行架构 POC
 
-### v0.6.1 — Test harness + synthetic test data
+这是 v0.6 的差异化特性。不再由单个 SA 顺序完成所有工作，而是拆分为 fan-out / fan-in 模式，共享同一个 R REPL。完整设计见 [`multi_sa_architecture.md`](multi_sa_architecture.md)。
 
-- `tests/testdata/synthetic_gsea.rds` — script-generated mock capsule with 5
-  contrasts × 50 Hallmark pathways, including a few pre-engineered
-  direction-flip cases (true_flip, p_suppression, p_restoration).
-- `tests/test_skill_structure.py` — frontmatter validity, profile ↔ script
-  cross-references, anti-pattern regex on SKILL.md itself.
-- `tests/test_quality_gate.py` — feed G1/G2/G3 a known PASS and a known FAIL
-  report, assert correct verdict.
-- Wire up GitHub Actions CI to run the smoke test on every PR.
+## v0.7 — 可视化
 
-### v0.6.2 — Multi-SA parallel architecture POC
+MSigDB 硬链接的说明:
 
-This is the differentiating feature for v0.6. Instead of one SA doing
-everything sequentially, split into a fan-out / fan-in pattern with a shared
-R REPL. Full design in [`multi_sa_architecture.md`](multi_sa_architecture.md).
+MSigDB 硬链接这方面是作为本项目的特色，是要硬依赖一个私有部署的本地 MSigDB MCP，这样能最大化的增强解读与数据处理的能力与速度
 
-## v0.7 — Decoupling and visualization
+- 将 `get_geneset_brief` / `search_text` 视为**可选**增强能力：在 S0 自动检测可用性，存在则走 MCP，缺失则回退到 `msigdbr` + rds内已有的整理好的描述。因为msigdb的自建MCP可以通过额外的full description来补充相关的内容。
 
-### v0.7.0 — MSigDB decoupling
+### v0.7.0 — 可视化代码落地
 
-Today §3a hard-depends on a private MSigDB MCP. Public users do not have it.
+SKILL.md §5c 目前仅以文字描述 cascade 热图，尚未交付代码。
 
-- Default to the `msigdbr` R package (CRAN, all collections, gene lists only).
-- Treat `get_geneset_brief` / `search_text` as **optional** enhancements:
-  auto-detect availability at S0, route through MCP when present, fall back to
-  `msigdbr` + curated descriptions when absent.
-- Document the degraded path explicitly in SKILL.md §3a.
+- `scripts/plot_cascade_heatmap.R` —— §5c 的 ComplexHeatmap 实现。
+- `scripts/plot_gsea_dot.R` —— §6d 中 Fig 3 的点图。
+- `scripts/plot_leading_edge.R` —— §6d 中 Fig 5 的 UpSet + 热图
+- 这些脚本都是示例脚本，用于在后续生成时，让LLM能够参考相应脚本进行基础代码的整理与渲染。
 
-### v0.7.1 — Visualization code lands
+## v0.8 — 报告易用性
 
-SKILL.md §5c currently *describes* the cascade heatmap in prose; no code ships.
+### v0.8.0 — Quarto 报告
 
-- `scripts/plot_cascade_heatmap.R` — ComplexHeatmap implementation of §5c.
-- `scripts/plot_gsea_dot.R` — Fig 3 dot plot from §6d.
-- `scripts/plot_leading_edge.R` — Fig 5 UpSet + heatmap from §6d.
+- 从纯 Markdown 并行为 `.qmd`，让用户从同一份源文件渲染出 PDF / HTML / Word。
+- 将报告模板参数化，使同一份分析能为「实验室内部评审」和「论文补充材料」渲染出不同形态。
 
-## v0.8 — Report ergonomics
+### v0.8.1 — 论文生态
 
-### v0.8.0 — Quarto reports
+- 文档化向[academic-research-skills](https://github.com/Imbad0202/academic-research-skills)中 `academic-paper` 的交接流程，把报告转成论文的 Results 章节。
 
-- Move from plain Markdown to `.qmd` so users can render PDF / HTML / Word
-  from one source.
-- Parameterize the report template so the same analysis renders differently
-  for lab internal review vs. manuscript supplementary.
+## 明确推迟的项目
 
-### v0.8.1 — Publication ecosystem
+以下内容已经讨论过，但暂列入范围之外：
 
-- Document hand-off to `academic-paper` for turning the report into a paper
-  Results section.
-- Provide a `nature-paper2ppt`-compatible PPT export path.
+- **VS Code 扩展（.vsix）** —— skill + agent role 的形态已足够；扩展封装目前只增加维护成本，用户收益尚不明确。
+- **单细胞 / 空间 RNA-seq GSEA** —— 输出 schema 不同；待 bulk 场景稳定后再考虑。
+- **非 LLM 的纯 R/Python 库形态** —— 对可复现性很有吸引力，但本项目的核心价值在于 agent 循环；留待 v1.x 再议。
 
-## v1.0 — General availability
+## 如何影响路线图
 
-- Test coverage ≥ 80% across R + Python.
-- Three independently-reported use cases cited in README.
-- Submit to [JOSS](https://joss.theoj.org/) (Journal of Open Source Software)
-  for a DOI-backed publication.
-- Stable profile support for all four platforms (gsealens / clusterProfiler /
-  fgsea / enrichit), each with an end-to-end test.
-
-## Explicitly deferred
-
-These have been considered and pushed out of scope for now:
-
-- **VS Code extension (.vsix)** — the skill + agent role form is sufficient;
-  the extension wrapper adds maintenance cost without clear user benefit yet.
-- **Single-cell / spatial RNA-seq GSEA** — different output schemas; revisit
-  once bulk is rock-solid.
-- **Non-LLM pure R/Python library form** — attractive for reproducibility, but
-  the value proposition of this project is the agent loop. Revisit at v1.x.
-
-## How to influence the roadmap
-
-Open a `feature_request` issue (see `.github/ISSUE_TEMPLATE/`). Pull requests
-that land methodology changes ahead of the schedule are welcome — just update
-`SKILL.md` and `CHANGELOG.md` in the same PR.
+欢迎开 `feature_request` issue（见 `.github/ISSUE_TEMPLATE/`）。若 PR 提前实现了方法论变更，同样欢迎——只需在同一 PR 中更新 `SKILL.md` 与 `CHANGELOG.md`。
