@@ -14,7 +14,7 @@ import re
 import sys
 from pathlib import Path
 
-REPO = Path('d:/BaiduYunDrive/OneDrive/github仓库/gsea-explorer')
+REPO = Path('d:/BaiduYunDrive/OneDrive/github仓库/gsealens-explorer')
 
 LOCATIONS = [
     {
@@ -26,9 +26,8 @@ LOCATIONS = [
         # English keyword inputs will load this skill/agent.
         'must_have': [
             '|NES|', 'RDS', 'NES', 'leading edge', 'gsealens',
-            'clusterProfiler', 'rds_path', '多组织 crosstalk',
+            'GSEAlens', 'Capsule', 'rds_path', '多组织 crosstalk',
             'GSEA 富集分析', 'NES 解读', '生物主题讨论', 'MSigDB 涌现发现',
-            'enrichit', 'fgsea',  # cross-platform reach
         ],
     },
     {
@@ -38,9 +37,8 @@ LOCATIONS = [
         'role':  'skill (master definition)',
         'must_have': [
             '|NES|', 'RDS', 'NES', 'leading edge', 'gsealens',
-            'clusterProfiler', 'rds_path', '多组织 crosstalk',
+            'GSEAlens', 'Capsule', 'rds_path', '多组织 crosstalk',
             'GSEA 富集分析', 'NES 解读', '生物主题讨论', 'MSigDB 涌现发现',
-            'enrichit', 'fgsea',
         ],
     },
     {
@@ -51,7 +49,7 @@ LOCATIONS = [
         # Bilingual: English body + Chinese trigger tail
         'must_have': [
             'GSEA', 'NES', 'RDS', 'leading edge', 'gsealens',
-            'clusterProfiler', 'enrichit', 'fgsea',
+            'GSEAlens', 'Capsule',
             # Chinese tail keywords for Chinese-speaking users
             'GSEA 富集分析', 'NES 解读', '多组织 crosstalk',
             '生物主题讨论', 'MSigDB 涌现发现', 'rds_path',
@@ -64,9 +62,8 @@ LOCATIONS = [
         'role':  'skill (master definition, public repo source)',
         'must_have': [
             '|NES|', 'RDS', 'NES', 'leading edge', 'gsealens',
-            'clusterProfiler', 'rds_path', '多组织 crosstalk',
+            'GSEAlens', 'Capsule', 'rds_path', '多组织 crosstalk',
             'GSEA 富集分析', 'NES 解读', '生物主题讨论', 'MSigDB 涌现发现',
-            'enrichit', 'fgsea',
         ],
     },
     {
@@ -76,7 +73,7 @@ LOCATIONS = [
         'role':  'agent role (sub-skill invocation, public repo source)',
         'must_have': [
             'GSEA', 'NES', 'RDS', 'leading edge', 'gsealens',
-            'clusterProfiler', 'enrichit', 'fgsea',
+            'GSEAlens', 'Capsule',
             # Chinese tail keywords
             'GSEA 富集分析', 'NES 解读', '多组织 crosstalk',
             '生物主题讨论', 'MSigDB 涌现发现', 'rds_path',
@@ -89,9 +86,8 @@ LOCATIONS = [
         'role':  'agent (top-level user-invocable, public repo source)',
         'must_have': [
             '|NES|', 'RDS', 'NES', 'leading edge', 'gsealens',
-            'clusterProfiler', 'rds_path', '多组织 crosstalk',
+            'GSEAlens', 'Capsule', 'rds_path', '多组织 crosstalk',
             'GSEA 富集分析', 'NES 解读', '生物主题讨论', 'MSigDB 涌现发现',
-            'enrichit', 'fgsea',
         ],
     },
 ]

@@ -63,7 +63,18 @@ log_msg(sprintf("Platform: %s (class: %s)", platform, paste(class(x), collapse="
 if (platform == "gsealens") {
   all_contrasts <- names(x$results)
 } else {
-  log_msg(sprintf("ERROR: only gsealens supported in this version, got %s", platform))
+  # gsealens-explorer is now GSEAlens-Capsule-only. Other GSEA platforms
+  # (clusterProfiler / fgsea / enrichit) are explicitly out of scope — see
+  # docs/roadmap.md "明确推迟的项目". For the methodology that other platforms
+  # could adapt, see docs/methodology/.
+  log_msg(sprintf(
+    "ERROR: detected platform='%s' (class=%s). gsealens-explorer only
+         supports GSEAlens Capsule RDS. If you have a GSEAlens RDS, verify
+         the file was produced by GSEAlens::export_capsule() or equivalent.
+         For other GSEA platforms, see docs/methodology/ for portable
+         methodology that can be adapted. Convert your RDS to GSEAlens
+         Capsule format first, or use a different interpreter.",
+    platform, paste(class(x), collapse=",")))
   close(log_con); quit(status = 1)
 }
 

@@ -1,6 +1,6 @@
 ---
 name: gsealens-explorer
-description: 有状态的 GSEA 富集结果探索性分析。通过持久 R REPL 读取 GSEA Capsule RDS (gsealens) 或通用 GSEA 输出（fgsea / clusterProfiler / enrichit），在关键决策点通过 author_background_template.md 向用户收集实验背景，跨 skill 编排证据整合，产出可审计报告，采用 |NES| enrichment direction framework 解读富集方向。支持多组织 crosstalk 分析（4-6 处理组 × 2+ 组织）。自动并行生成 5 个生物学主题的深度讨论（leading edge + C2 涌现 + 跨主题整合）。触发词：GSEA 富集分析、NES 解读、leading edge、多组织 crosstalk、生物主题讨论、MSigDB 涌现发现、rds_path 驱动。
+description: 有状态的 GSEA 富集结果探索性分析。专精 GSEAlens Capsule RDS，通过持久 R REPL 读取 GSEA 结果，在关键决策点通过 author_background_template.md 向用户收集实验背景，跨 skill 编排证据整合，产出可审计报告，采用 |NES| enrichment direction framework 解读富集方向。支持多组织 crosstalk 分析（4-6 处理组 × 2+ 组织）。自动并行生成 5 个生物学主题的深度讨论（leading edge + C2 涌现 + 跨主题整合）。三层 MSigDB 访问策略（Tier 1 MCP / Tier 2 SQLite / Tier 3 RDS-only）。触发词：GSEA 富集分析、NES 解读、leading edge、多组织 crosstalk、生物主题讨论、MSigDB 涌现发现、rds_path 驱动、gsealens、GSEAlens、Capsule。
 metadata:
   version: "0.5.5"
   last_updated: "2026-06-16"
@@ -498,93 +498,119 @@ cross_contrast_joint.md:
    - ✅ "该通路在两组织中均富集于治疗组, 但胰腺 |NES|=2.1 > 肝脏 |NES|=1.6"
 ```
 
-## 3a. MSigDB 本地知识库 — 强绑定涌现发现 (msigdb MCP) [v0.5.2, MANDATORY]
+## 3a. MSigDB 本地知识库 — 三层访问策略 (v0.6 新增)
 
 ### 定位
-gsealens-explorer 的核心能力是**涌现发现** — 不仅解读单条通路, 还要从数十条显著通路的 BRIEF/FULL 描述中提炼出跨通路的共性主题, 发现 LLM 无法从名字直接推断的生物学连接。MSigDB 本地 MCP 是这条涌现链路的**核心基础设施**, 在每个关键阶段都被强制调用。
+gsealens-explorer 的核心能力是**涌现发现** — 不仅解读单条通路, 还要从数十条显著通路的 BRIEF/FULL 描述中提炼出跨通路的共性主题, 发现 LLM 无法从名字直接推断的生物学连接。MSigDB 本地数据库是这条涌现链路的**核心基础设施**, 通过三层访问策略最大化可用性。
 
 **与 R 包 `msigdbr` 的关键差异**:
 - `msigdbr`: 只给基因列表, 无 BRIEF/FULL/PMID/AUTHORS
-- **MSigDB MCP**: 35,361 基因集, 含 BRIEF (一句话简述) + FULL (完整文献背景) + PMID + GEOID + AUTHORS + EXACT_SOURCE
+- **MSigDB 官方 DB** (本项目采用): 35,361 基因集, 含 BRIEF (一句话简述) + FULL (完整文献背景) + PMID + GEOID + AUTHORS (规范化 display_name + full_name + order) + DOI + pub_title
 
-### 数据源
-- SQLite 数据库: `<your_msigdb_scraper_dir>/msigdb.db` (~566 MB)
-- 全局 MCP server: `msigdb` (在 `mcp.json` 注册, 任意工作区可调用; 若未配置则降级到 `msigdbr` R 包)
-- 备用 CLI: `python <your_msigdb_scraper_dir>/msigdb_query.py <tool> --params '{...}'`
+### 三层访问策略 (S0 自动检测, 按优先级降级)
 
-### 覆盖范围
-35,361 个基因集, 10 个 collection, 4,524,768 基因-集成员行。
-- DESCRIPTION_BRIEF 覆盖率: 99%
-- DESCRIPTION_FULL 覆盖率: 46%
-- PMID 覆盖: CGP (37%), IMMUNESIGDB (99.6%); Hallmark (Liberzon 2016)
-- GEOID 覆盖: CGP (37%), IMMUNESIGDB (99.6%); 通路类 (KEGG/Reactome/GO) 无
+| Tier | 数据源 | 能力 | 触发条件 |
+|---|---|---|---|
+| **Tier 1**（推荐） | `mcp__msigdb__*` 6 个工具 | 全部能力，接口最干净 | 已配置 `msigdb` MCP |
+| **Tier 2**（fallback） | `scripts/query_msigdb.py` 直读 SQLite | 数据等价于 MCP，需 subagent 构造调用 | MCP 不可用但 `msigdb.db` 可访问 |
+| **Tier 3**（降级） | RDS 内 `Description` 字段 | 仅通路名 + NES，**无 BRIEF/FULL/PMID**；涌现 SOP 跳过 SYNTHESIZE 阶段；报告标注 `degraded` | MCP 与 db 都不可用 |
 
-### MCP 工具 (6 个, 全局可用)
+**降级行为明确化**: Tier 3 模式下报告 frontmatter 必须含 `msigdb_tier: degraded`，G6 门控标记为 `degraded_mode`，提醒用户解读深度受限。
+
+### 数据源（Tier 1 默认）
+
+- SQLite 数据库: **MSigDB 官方 v2026.1.Hs**（289 MB）—— 推荐路径，从 MSigDB 官网下载
+- 全局 MCP server: `msigdb` (在 `mcp.json` 注册，任意工作区可调用)
+- 数据库路径可通过环境变量 `MSIGDB_DB_PATH` 自定义
+- 备用 CLI: `python scripts/query_msigdb.py <tool> --params '{...}'`
+
+### 覆盖范围（官方 v2026.1.Hs 实测）
+
+| Collection | Total | BRIEF | FULL | PMID |
+|---|---:|---:|---:|---:|
+| H (Hallmark) | 50 | 100% | 0% | 100% |
+| C2:CGP | 3,555 | 100% | **100%** | **100%** |
+| C2:CP:BIOCARTA | 292 | 100% | 73% | 0% |
+| C2:CP:KEGG_LEGACY | 186 | 100% | 61% | 0% |
+| C2:CP:KEGG_MEDICUS | 658 | 100% | **100%** | 0% |
+| C2:CP:PID | 196 | 100% | 0% | 100% |
+| C2:CP:REACTOME | 1,839 | 100% | 0% | 0% |
+| C2:CP:WIKIPATHWAYS | 925 | 100% | 0% | 0% |
+| C5:HPO | 5,793 | 100% | 90% | 0% |
+| C7:IMMUNESIGDB | 4,872 | 100% | **100%** | **99%** |
+| C7:VAX | 347 | 100% | **100%** | **100%** |
+| C6 (oncogenic) | 189 | 100% | 91% | 96% |
+
+35,361 个基因集总覆盖: BRIEF 100%, FULL 60%, PMID 25%（按需加权）。
+
+### MCP 工具（6 个，全局可用）
 
 ```python
-# 1. 完整元数据 (含基因列表) — 最详细
+# 1. 完整元数据（含基因列表）— 最详细
 mcp__msigdb__get_geneset(name="KEGG_PARKINSONS_DISEASE")
 
-# 2. 简要元数据 (最常用) — BRIEF/FULL/PMID/GEOID/AUTHORS
+# 2. 简要元数据（最常用）— BRIEF/FULL/PMID/DOI/pub_title/AUTHORS
 mcp__msigdb__get_geneset_brief(name="BARRIER_CANCER_RELAPSE_NORMAL_SAMPLE_UP")
 
-# 3. 反向查找: 包含给定基因的基因集
+# 3. 反向查找：包含给定基因的基因集
 mcp__msigdb__get_genesets_by_genes(genes=["STAT1","IRF1"], require_all=True, limit=10)
 mcp__msigdb__get_genesets_by_genes(genes=["STAT1","IRF1"], require_all=False, collection="H")
 
-# 4. 名称模式搜索 (LIKE)
+# 4. 名称模式搜索（LIKE）
 mcp__msigdb__get_genesets_by_pattern(pattern="%FIBROBLAST%", limit=20)
 
-# 5. 全文搜索 (BRIEF/FULL/EXACT_SOURCE)
+# 5. 全文搜索（BRIEF/FULL/EXACT_SOURCE）
 mcp__msigdb__search_text(query="oxidative phosphorylation", limit=10)
 
 # 6. Collection 统计
 mcp__msigdb__list_collections()
 ```
 
-### 强绑定使用规则 (MANDATORY, 任意阶段违规视为 G 门控失败)
+### 分层使用规则（按 Tier 调整强度）
 
-| 阶段 | 必须调用 | 强制动作 |
+| 阶段 | Tier 1 / 2 强制调用 | Tier 3 降级行为 |
 |---|---|---|
-| **S2 (假设生成)** | `search_text` × 2-3 次 | 用用户提供的关键词 (来自 S1 背景) 在 description_brief/full 中搜索, 看 MSigDB 已有研究覆盖哪些相关机制 |
-| **S4 (数据提取)** | — | 仅 R 提取显著通路表 |
-| **S5 (知识增广)** | `get_geneset_brief` × top N 通路 | 对 **每个 collection (H/C2/C5/C6) 的 top 20 显著通路** 调一次, 写入 `evidence/msigdb_brief_<collection>.json` |
-| **S6 (深度解读)** | `get_geneset_brief` (逐通路) | **每条被解读的通路都必须先调**; 解读文本必须**显式引用** description_full 中的关键句 (否则按"凭名字推断"违规) |
-| **S6b (跨对比组)** | `get_genesets_by_genes` | 对 direction-flip 通路 (P-Suppression/P-Restoration/True Flip) 的 leading edge top 10 基因做反向查询, 看是否跨主题共同出现 |
-| **S7 (Discussion)** | `search_text` × ≥3 | 用 Discussion 章节中新提出的核心机制名 (如"线粒体复合物 I 抑制")搜索, 确认是否有 MSigDB 已收录的关联基因集 (用于"跨集合印证") |
-| **S7b (并行深度)** | 每个主题 subagent: `get_geneset_brief` × top 10 + `get_genesets_by_genes` × leading edge + `search_text` × ≥2 | 写入 `deep_discussion/<theme>_evidence.md` |
-| **S10 (Follow-up)** | 按专题 | 用户指定机制时, 围绕该机制做深度搜索 |
+| **S2（假设生成）** | `search_text` × 2-3 次 | 跳过（仅基于背景假设） |
+| **S4（数据提取）** | — | — |
+| **S5（知识增广）** | `get_geneset_brief` × top 20 | 跳过（仅依赖 RDS Description） |
+| **S6（深度解读）** | `get_geneset_brief` 逐通路 | 逐通路 + 标注"无 BRIEF 支撑" |
+| **S6b（跨对比组）** | `get_genesets_by_genes` | 跳过 |
+| **S7（Discussion）** | `search_text` × ≥3 | 跳过 |
+| **S7b（并行深度）** | 每个 subagent 调用全套 | 跳过 |
+| **S10（Follow-up）** | 按专题 | 按专题（标注 degraded） |
 
-### 涌现发现 SOP (SOP = 标准操作流程) [v0.5.2 新增]
+### 涌现发现 SOP（v0.5.2 引入，v0.6 适配三层策略）
 
-涌现不是"读一段描述就总结", 而是**结构化四步法**:
+涌现不是"读一段描述就总结"，而是**结构化四步法**:
 
-#### 步骤 1: 字段抽取 (EXTRACT)
-对 S5 已写入 `evidence/msigdb_brief_*.json` 的所有通路, 程序化抽取:
-- `description_full` 全文 (若有)
-- `description_brief` 全文 (若有)
-- `pmid` (若有)
-- `exact_source` (若有)
+#### 步骤 1：字段抽取（EXTRACT）
+对 S5 已写入 `evidence/msigdb_brief_*.json` 的所有通路，程序化抽取:
+- `description_full` 全文（若有）
+- `description_brief` 全文（若有）
+- `pmid`、`doi`、`pub_title`（若有）
+- `authors` 列表（若有）
+- `exact_source`（若有）
 
-#### 步骤 2: 关键词聚类 (CLUSTER)
+#### 步骤 2：关键词聚类（CLUSTER）
 从所有 BRIEF/FULL 文本中**自动抽取高频生物学概念**:
 - 名词: 线粒体 / 复合物 I / NADH / 氧化磷酸化 / 自噬 / 凋亡 / 纤维化 / 上皮间充质转化 / 巨噬细胞极化 / DNA 损伤修复...
 - 动词/过程: activation / suppression / infiltration / recruitment / polarization / repair...
 - 细胞/组织: T cell / macrophage / fibroblast / endothelium / epithelium...
 
-建议工具: R `tidytext::unnest_tokens` + `count()` + `tf-idf`; 或 Python `sklearn.TfidfVectorizer`。
+建议工具: R `tidytext::unnest_tokens` + `count()` + `tf-idf`；或 Python `sklearn.TfidfVectorizer`。
 
-#### 步骤 3: 跨通路主题归纳 (SYNTHESIZE)
-按聚类结果把 top 显著通路归入 N 个主题 (N=3-5, 取决于数据):
+#### 步骤 3：跨通路主题归纳（SYNTHESIZE）
+按聚类结果把 top 显著通路归入 N 个主题（N=3-5，取决于数据):
 - 例 1: {KEGG_PARKINSONS_DISEASE, KEGG_HUNTINGTONS_DISEASE, KEGG_ALZHEIMERS_DISEASE} → 共同主题 "线粒体复合物 I / 氧化磷酸化"
 - 例 2: {GOBP_T_CELL_ACTIVATION, GOBP_T_CELL_PROLIFERATION, HALLMARK_TNFA_SIGNALING} → 共同主题 "T 细胞激活/增殖 + 炎症信号"
 
-**关键**: 主题命名必须有 BRIEF/FULL 文本支持, **不能**仅凭通路名推断。
+**关键**: 主题命名必须有 BRIEF/FULL 文本支持，**不能**仅凭通路名推断。**Tier 3 模式下跳过此步**。
 
-#### 步骤 4: 涌现假说生成 (HYPOTHESIZE)
-基于跨主题的共同概念, 生成新的生物学假说:
-- 模板: "在 [组织] 的 [处理] 背景下, 多个原本独立的 MSigDB 基因集共同指向 [共同机制], 提示 [涌现机制] 可能作为 [核心驱动] 参与 [表型]。"
+#### 步骤 4：涌现假说生成（HYPOTHESIZE）
+基于跨主题的共同概念，生成新的生物学假说:
+- 模板: "在 [组织] 的 [处理] 背景下，多个原本独立的 MSigDB 基因集共同指向 [共同机制]，提示 [涌现机制] 可能作为 [核心驱动] 参与 [表型]。"
 - 每个涌现假说必须引用 ≥3 条 MSigDB 通路的 description_brief/full 作为支撑。
+- **Tier 3 模式下跳过此步**，仅基于通路名相似性给出"假说候选"（不视为最终结论）。
 
 ### KEGG 名称误导专项防御 [MANDATORY]
 
@@ -593,31 +619,40 @@ KEGG_LEGACY / KEGG_MEDICUS 通路**名称字面含义常具误导性**:
 - `KEGG_HUNTINGTONS_DISEASE` 实为 Complex II + Complex III
 - `KEGG_ALZHEIMERS_DISEASE` 实为 Complex IV + 凋亡
 
-**铁律**: 解读任何 KEGG_LEGACY / KEGG_MEDICUS 通路时, **必须**先调 `get_geneset_brief` 看 FULL, 然后**只引用 FULL 描述中的实际机制**, 不能写"该通路与 XX 疾病相关"等基于名称的推断。
+**铁律**: 解读任何 KEGG_LEGACY / KEGG_MEDICUS 通路时，**必须**先调 `get_geneset_brief` 看 FULL，然后**只引用 FULL 描述中的实际机制**，不能写"该通路与 XX 疾病相关"等基于名称的推断。
 
 ### 强制写作规范
 
-- 解读文本中出现 PMID 时, 格式: `[Smith et al., 2020, PMID:12345678]`
-- CGP / IMMUNESIGDB 通路引用必须含 PMID (在 MSigDB 已有 PMID 时)
+- 解读文本中出现 PMID 时，格式: `[Smith et al., 2020, PMID:12345678]`
+- CGP / IMMUNESIGDB 通路引用必须含 PMID（Tier 1/2 下）
 - 引用 `description_full` 时格式: `[MSigDB: KEGG_PARKINSONS_DISEASE 描述: "α-synuclein/复合物 I..."]`
+- 引用 `pub_title` 时格式: `["pub_title", PMID:12345]`
 
 ### 解读示例
 
 ```
-# 解读 KEGG_PARKINSONS_DISEASE 富集时:
+# 解读 KEGG_PARKINSONS_DISEASE 富集时（Tier 1）:
 get_geneset_brief("KEGG_PARKINSONS_DISEASE")
 # → description_full = "PD is a progressive neurodegenerative movement disorder... 
 #   mutations in alpha-synuclein, UCHL1, parkin, DJ1, and PINK1... mechanisms that 
 #   result in proteasome dysfunction, mitochondrial impairment, and oxidative stress..."
-# → 正确解读: 该基因集虽名为"帕金森病", 实际是线粒体复合物 I 基因集合
-#   → 与放射治疗引发的线粒体危机直接相关, 而非神经退行性病变
+# → 正确解读: 该基因集虽名为"帕金森病"，实际是线粒体复合物 I 基因集合
+#   → 与放射治疗引发的线粒体危机直接相关，而非神经退行性病变
+
+# 解读 HALLMARK_HYPOXIA 富集时（Tier 1，多字段利用）:
+get_geneset_brief("HALLMARK_HYPOXIA")
+# → PMID=26771021, pub_title="The Molecular Signatures Database (MSigDB) hallmark
+#    gene set collection", authors="Liberzon A; Birger C; Thorvaldsdóttir H; ..."
+# → 解读引用: "Hallmark 基因集由 Liberzon 等 [Liberzon et al., 2015, PMID:26771021,
+#    "The Molecular Signatures Database (MSigDB) hallmark gene set collection"] 系统定义..."
 
 # 解读 CGP 基因集时:
 get_geneset_brief("BARRIER_CANCER_RELAPSE_NORMAL_SAMPLE_UP")
-# → pmid="16091735", authors="Barrier A, Lemoine A, ..."
+# → pmid="16091735", authors="Barrier A; Lemoine A; ..."
 # → description_brief="Up-regulated genes in non-neoplastic mucosa samples from
 #   colon cancer patients who developed recurrence of the disease."
 # → 解读引用: "Barrier 等 (PMID: 16091735) 在结肠癌复发预测研究中发现..."
+```
 ```
 ## 3b. 文献验证规则 — bioRxiv 禁用 + 强制 PMC 验证 [v0.5.2, MANDATORY]
 
